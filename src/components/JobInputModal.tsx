@@ -34,12 +34,21 @@ export const JobInputModal: React.FC<JobInputModalProps> = ({
   const [jobDescription, setJobDescription] = useState('');
   const [isFetchingUrl, setIsFetchingUrl] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [fetchSuccessMsg, setFetchSuccessMsg] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
   // Preset sample JDs for 1-click test
-  const loadSample = (type: 'oracle' | 'goldman' | 'stripe') => {
-    if (type === 'oracle') {
+  const loadSample = (type: 'oracle' | 'goldman' | 'stripe' | 'jpmc_oracle') => {
+    setFetchError(null);
+    setFetchSuccessMsg(null);
+    if (type === 'jpmc_oracle') {
+      setUrl('https://jpmc.fa.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_1001/job/210781248/?lastSelectedFacet=CATEGORIES&selectedCategoriesFacet=300000086152753&selectedPostingDatesFacet=7');
+      setActiveTab('url');
+      setCompany('JPMorganChase');
+      setTitle('Full Stack Java / Typescript / AWS Lead Software Engineer');
+      setLocation('New York, NY, United States');
+    } else if (type === 'oracle') {
       setTitle('Senior Software Engineer - Cloud Order Management');
       setCompany('Oracle');
       setLocation('Bangalore, India (Hybrid)');
@@ -107,31 +116,33 @@ Who you are:
     if (!url.trim()) return;
     setIsFetchingUrl(true);
     setFetchError(null);
+    setFetchSuccessMsg(null);
 
     try {
       const res = await fetch('/api/jobs/fetch-url', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url })
+        body: JSON.stringify({ url: url.trim() })
       });
       const data = await res.json();
       if (!res.ok) {
         throw new Error(data.error || 'Failed to fetch job page');
       }
-      setJobDescription(data.text);
-      // Try to parse basic company / title if missing
-      if (!company) {
-        try {
-          const u = new URL(url);
-          const domainParts = u.hostname.replace('www.', '').replace('careers.', '').split('.');
-          if (domainParts.length > 0) {
-            setCompany(domainParts[0].charAt(0).toUpperCase() + domainParts[0].slice(1));
-          }
-        } catch (_) {}
+
+      if (data.text) {
+        setJobDescription(data.text);
       }
-      if (!title) {
-        setTitle('Software Engineer');
+      if (data.title) {
+        setTitle(data.title);
       }
+      if (data.company) {
+        setCompany(data.company);
+      }
+      if (data.location) {
+        setLocation(data.location);
+      }
+
+      setFetchSuccessMsg(`Successfully extracted job details for "${data.title || 'Role'}" from ${data.portalType ? data.portalType.replace(/_/g, ' ') : 'portal'}.`);
       setActiveTab('paste');
     } catch (err: any) {
       setFetchError(err.message || 'Could not fetch URL directly. Please copy & paste the JD text below.');
@@ -139,6 +150,7 @@ Who you are:
       setIsFetchingUrl(false);
     }
   };
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -186,6 +198,15 @@ Who you are:
             <div className="flex flex-wrap items-center gap-1.5">
               <button
                 type="button"
+                id="btn-preset-jpmc-oracle"
+                onClick={() => loadSample('jpmc_oracle')}
+                className="px-2.5 py-1 text-xs font-semibold bg-[#EAE6FF] hover:bg-[#DED9FF] text-[#403294] border border-[#C0B6F2] rounded-[3px] transition-colors flex items-center space-x-1"
+              >
+                <Sparkles className="w-3 h-3 text-[#6554C0]" />
+                <span>JPMC Oracle Cloud (Req #210781248)</span>
+              </button>
+              <button
+                type="button"
                 id="btn-preset-oracle"
                 onClick={() => loadSample('oracle')}
                 className="px-2.5 py-1 text-xs font-semibold bg-white hover:bg-[#DEEBFF] text-[#0052CC] border border-[#DFE1E6] rounded-[3px] transition-colors"
@@ -210,6 +231,7 @@ Who you are:
               </button>
             </div>
           </div>
+
 
           {/* Job Inputs Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -337,8 +359,16 @@ Who you are:
                   <span>{fetchError}</span>
                 </div>
               )}
+
+              {fetchSuccessMsg && (
+                <div className="p-2 bg-[#E3FCEF] border border-[#ABF5D1] rounded-[3px] text-xs text-[#006644] flex items-center space-x-1.5">
+                  <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                  <span>{fetchSuccessMsg}</span>
+                </div>
+              )}
             </div>
           )}
+
 
           {/* Job Description Textarea */}
           <div>

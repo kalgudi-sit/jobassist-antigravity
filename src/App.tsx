@@ -363,6 +363,13 @@ export default function App() {
             onDiscoverRecruiters={handleDiscoverRecruiters}
             onGenerateOutreach={handleGenerateOutreach}
             onDeleteApplication={handleDeleteApplication}
+            onUpdateApplication={(updatedApp) => {
+              setApplications(prev => prev.map(a => a.id === updatedApp.id ? updatedApp : a));
+            }}
+            onSaveMasterQA={async (newQAs) => {
+              const updatedProfile = { ...profile, masterQA: newQAs };
+              await handleSaveProfile(updatedProfile);
+            }}
             isTailoring={isTailoringResume}
             isGeneratingCoverLetter={isGeneratingCoverLetter}
             isDiscoveringRecruiters={isDiscoveringRecruiters}

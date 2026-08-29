@@ -65,6 +65,43 @@ export interface EducationItem {
   grade?: string;
 }
 
+export interface MasterQAItem {
+  id: string;
+  category: 'work_authorization' | 'company_history' | 'demographics' | 'availability' | 'compensation' | 'general';
+  question: string;
+  answer: string;
+  options?: string[];
+  explanation?: string;
+  updatedAt: string;
+}
+
+export interface PendingQuestion {
+  id: string;
+  question: string;
+  portalFieldLabel?: string;
+  fieldId?: string;
+  category: 'work_authorization' | 'company_history' | 'demographics' | 'availability' | 'compensation' | 'general' | 'role_specific';
+  suggestedAnswer?: string;
+  options?: string[];
+  userAnswer?: string;
+  answeredAt?: string;
+  status: 'PENDING' | 'RESOLVED';
+}
+
+export interface ApplicationSubmissionResult {
+  applicationId: string;
+  submittedAt: string;
+  portalType: string;
+  portalName: string;
+  submissionStatus: 'SUBMITTED' | 'NEEDS_INPUT' | 'PENDING_CONFIRMATION' | 'FAILED';
+  trackingNumber?: string;
+  trackingUrl: string;
+  confirmationId?: string;
+  answersSubmitted: Array<{ question: string; answer: string; source: 'master_list' | 'ai_generated' | 'user_answered' }>;
+  pendingQuestions: PendingQuestion[];
+  notes?: string;
+}
+
 export interface UserProfile {
   personal: PersonalInfo;
   summary: string;
@@ -74,6 +111,7 @@ export interface UserProfile {
   education: EducationItem[];
   certifications: string[];
   masterTexResume: string;
+  masterQA?: MasterQAItem[];
 }
 
 export interface Requirement {
@@ -202,6 +240,53 @@ export interface OutreachPackage {
   generatedAt: string;
 }
 
+export interface ScreeningAnswer {
+  id: string;
+  question: string;
+  answer: string;
+  category: 'technical' | 'experience' | 'authorization' | 'motivation' | 'salary_notice';
+  relevanceTag?: string;
+}
+
+export interface AutoApplyPayload {
+  portalType: 'ORACLE_CLOUD' | 'WORKDAY' | 'GREENHOUSE' | 'LEVER' | 'TALEO' | 'LINKEDIN' | 'GENERIC';
+  portalName: string;
+  portalUrl: string;
+  requisitionId?: string;
+  personalInfo: {
+    firstName: string;
+    lastName: string;
+    fullName: string;
+    email: string;
+    phone: string;
+    city: string;
+    country: string;
+    linkedinUrl: string;
+    githubUrl: string;
+    portfolioUrl?: string;
+  };
+  workAuthorization: {
+    authorized: string;
+    sponsorshipRequired: string;
+    noticePeriod: string;
+    currentLocation: string;
+    preferredWorkType: string;
+  };
+  experienceSummary: {
+    totalYears: string;
+    currentEmployer: string;
+    currentRole: string;
+    keySkillsSummary: string;
+    topAccomplishments: string[];
+  };
+  screeningAnswers: ScreeningAnswer[];
+  tailoredResumeSummary: string;
+  tailoredCoverLetter: string;
+  bookmarkletScript: string;
+  extensionSnippet: string;
+  generatedAt: string;
+}
+
 export interface JobApplication {
   id: string;
   title: string;
@@ -219,4 +304,9 @@ export interface JobApplication {
   resumeTailoring?: ResumeTailoringResult;
   coverLetter?: CoverLetter;
   outreach?: OutreachPackage;
+  autoApply?: AutoApplyPayload;
+  submissionResult?: ApplicationSubmissionResult;
+  pendingQuestions?: PendingQuestion[];
+  trackingUrl?: string;
 }
+

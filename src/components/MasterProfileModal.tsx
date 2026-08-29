@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { UserProfile, SkillItem, ExperienceItem, ProjectItem } from '../types';
 import { DEFAULT_MASTER_TEX, DEFAULT_USER_PROFILE } from '../data/defaultProfile';
+import { MasterQAEditor } from './MasterQAEditor';
 
 interface MasterProfileModalProps {
   isOpen: boolean;
@@ -31,7 +32,7 @@ export const MasterProfileModal: React.FC<MasterProfileModalProps> = ({
   profile,
   onSaveProfile
 }) => {
-  const [activeTab, setActiveTab] = useState<'tex' | 'personal' | 'experience' | 'skills' | 'projects'>('tex');
+  const [activeTab, setActiveTab] = useState<'tex' | 'qa' | 'personal' | 'experience' | 'skills' | 'projects'>('tex');
   const [formData, setFormData] = useState<UserProfile>(profile);
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -107,6 +108,17 @@ export const MasterProfileModal: React.FC<MasterProfileModalProps> = ({
           >
             <FileCode2 className="w-3.5 h-3.5 text-[#6554C0]" />
             <span>Master .tex Resume Code</span>
+          </button>
+
+          <button
+            id="tab-master-qa"
+            onClick={() => setActiveTab('qa')}
+            className={`py-3 text-xs font-bold border-b-2 flex items-center space-x-1.5 transition-colors cursor-pointer ${
+              activeTab === 'qa' ? 'border-[#0052CC] text-[#0052CC]' : 'border-transparent text-[#42526E] hover:text-[#172B4D]'
+            }`}
+          >
+            <ShieldCheck className="w-3.5 h-3.5 text-[#006644]" />
+            <span>Master QA & Screening Answers ({formData.masterQA?.length || 13})</span>
           </button>
 
           <button
@@ -194,7 +206,18 @@ export const MasterProfileModal: React.FC<MasterProfileModalProps> = ({
             </div>
           )}
 
-          {/* TAB 2: PERSONAL & SUMMARY */}
+          {/* TAB 2: MASTER NON-TECHNICAL QA & SCREENING ANSWERS */}
+          {activeTab === 'qa' && (
+            <MasterQAEditor
+              profile={formData}
+              onSaveProfile={async (updatedProfile) => {
+                setFormData(updatedProfile);
+                await onSaveProfile(updatedProfile);
+              }}
+            />
+          )}
+
+          {/* TAB 3: PERSONAL & SUMMARY */}
           {activeTab === 'personal' && (
             <div className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

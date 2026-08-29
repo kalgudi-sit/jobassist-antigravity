@@ -1,4 +1,123 @@
-import { UserProfile, JobApplication } from '../types';
+import { UserProfile, JobApplication, MasterQAItem } from '../types';
+
+export const DEFAULT_MASTER_QA: MasterQAItem[] = [
+  {
+    id: 'mqa-auth-1',
+    category: 'work_authorization',
+    question: 'Are you legally authorized to work in the country of this position?',
+    answer: 'Yes',
+    options: ['Yes', 'No'],
+    explanation: 'Candidate holds legal work authorization in the target country / jurisdiction.',
+    updatedAt: '2026-08-28T10:00:00Z'
+  },
+  {
+    id: 'mqa-auth-2',
+    category: 'work_authorization',
+    question: 'Will you now or in the future require employment visa sponsorship?',
+    answer: 'No',
+    options: ['Yes', 'No'],
+    explanation: 'No current visa sponsorship required for permanent employment.',
+    updatedAt: '2026-08-28T10:00:00Z'
+  },
+  {
+    id: 'mqa-hist-1',
+    category: 'company_history',
+    question: 'Have you ever been previously employed by, or worked as a contractor/consultant for this company?',
+    answer: 'No',
+    options: ['Yes', 'No'],
+    explanation: 'No prior direct employment or contractor affiliation with this specific enterprise entity.',
+    updatedAt: '2026-08-28T10:00:00Z'
+  },
+  {
+    id: 'mqa-hist-2',
+    category: 'company_history',
+    question: 'Have you ever worked with any partner alliance, client subsidiary, or vendor of this organization?',
+    answer: 'Yes (Wissen Technology on client engagement for tier-1 financial institutions including Morgan Stanley)',
+    options: ['Yes', 'No'],
+    explanation: 'Consultant experience with enterprise partner Wissen Technology deploying Cash Equities OMS platforms.',
+    updatedAt: '2026-08-28T10:00:00Z'
+  },
+  {
+    id: 'mqa-demo-1',
+    category: 'demographics',
+    question: 'What is your gender identity?',
+    answer: 'Male (or I prefer not to declare)',
+    options: ['Male', 'Female', 'Non-Binary', 'I prefer not to say'],
+    explanation: 'Standard voluntary EEO demographic question.',
+    updatedAt: '2026-08-28T10:00:00Z'
+  },
+  {
+    id: 'mqa-demo-2',
+    category: 'demographics',
+    question: 'What is your race / ethnicity?',
+    answer: 'Asian / South Asian (or I prefer not to declare)',
+    options: ['Asian', 'Black or African American', 'Hispanic or Latino', 'White', 'Two or More Races', 'I prefer not to say'],
+    explanation: 'Standard voluntary Equal Opportunity Employment question.',
+    updatedAt: '2026-08-28T10:00:00Z'
+  },
+  {
+    id: 'mqa-demo-3',
+    category: 'demographics',
+    question: 'What is your veteran status?',
+    answer: 'I am not a protected veteran',
+    options: ['I am a protected veteran', 'I am not a protected veteran', 'I prefer not to say'],
+    explanation: 'Standard voluntary veteran status disclosure.',
+    updatedAt: '2026-08-28T10:00:00Z'
+  },
+  {
+    id: 'mqa-demo-4',
+    category: 'demographics',
+    question: 'Do you have a disability or a history/record of having a disability?',
+    answer: 'No, I do not have a disability',
+    options: ['Yes, I have a disability', 'No, I do not have a disability', 'I do not wish to answer'],
+    explanation: 'Standard voluntary self-identification of disability (Form CC-305).',
+    updatedAt: '2026-08-28T10:00:00Z'
+  },
+  {
+    id: 'mqa-avail-1',
+    category: 'availability',
+    question: 'What is your current notice period and earliest available joining date?',
+    answer: '30 Days (Negotiable / Immediate upon mutual agreement)',
+    options: ['Immediate', '15 Days', '30 Days', '60 Days', '90 Days'],
+    explanation: 'Standard notice period for software engineering roles.',
+    updatedAt: '2026-08-28T10:00:00Z'
+  },
+  {
+    id: 'mqa-avail-2',
+    category: 'availability',
+    question: 'Are you open to hybrid / on-site working arrangements at the specified office location?',
+    answer: 'Yes, fully open to hybrid or on-site schedules.',
+    options: ['Yes', 'No - Remote Only', 'Open to discussion'],
+    explanation: 'Flexible for hybrid or location requirements.',
+    updatedAt: '2026-08-28T10:00:00Z'
+  },
+  {
+    id: 'mqa-comp-1',
+    category: 'compensation',
+    question: 'What are your annual base salary expectations?',
+    answer: 'Competitive / Open to discussing in line with company standard compensation bands for this role and location.',
+    explanation: 'Flexible compensation aligning with market and candidate engineering seniority.',
+    updatedAt: '2026-08-28T10:00:00Z'
+  },
+  {
+    id: 'mqa-gen-1',
+    category: 'general',
+    question: 'Do you have any relatives or family members currently employed at this company?',
+    answer: 'No',
+    options: ['Yes', 'No'],
+    explanation: 'Standard conflict-of-interest check.',
+    updatedAt: '2026-08-28T10:00:00Z'
+  },
+  {
+    id: 'mqa-gen-2',
+    category: 'general',
+    question: 'Are you subject to any non-compete agreements or restrictive covenants from your current or past employer?',
+    answer: 'No',
+    options: ['Yes', 'No'],
+    explanation: 'Candidate is free of non-compete restrictions.',
+    updatedAt: '2026-08-28T10:00:00Z'
+  }
+];
 
 export const DEFAULT_MASTER_TEX: string = `\\documentclass[10pt,a4paper]{article}
 \\usepackage[left=0.6in,right=0.6in,top=0.5in,bottom=0.5in]{geometry}
@@ -215,7 +334,8 @@ export const DEFAULT_USER_PROFILE: UserProfile = {
     'Confluent Certified Developer for Apache Kafka (In Progress)',
     'HackerRank Problem Solving (Advanced) Certified'
   ],
-  masterTexResume: DEFAULT_MASTER_TEX
+  masterTexResume: DEFAULT_MASTER_TEX,
+  masterQA: DEFAULT_MASTER_QA
 };
 
 export const SAMPLE_APPLICATIONS: JobApplication[] = [
