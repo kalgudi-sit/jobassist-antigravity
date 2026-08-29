@@ -1,0 +1,6 @@
+{
+  "name": "Job Application Copilot",
+  "description": "Atlassian-themed AI job application copilot for analyzing job descriptions, tailoring LaTeX (.tex) resumes, generating cover letters, discovering recruiters, and creating personalized outreach.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
