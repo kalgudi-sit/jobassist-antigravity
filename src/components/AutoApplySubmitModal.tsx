@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { JobApplication, UserProfile, MasterQAItem, PendingQuestion, ApplicationSubmissionResult } from '../types';
 import { StatusLozenge } from './StatusLozenge';
+import { submissionService } from '../services/submissionService';
 
 interface AutoApplySubmitModalProps {
   isOpen: boolean;
@@ -67,16 +68,7 @@ export const AutoApplySubmitModal: React.FC<AutoApplySubmitModalProps> = ({
 
     try {
       // Step 1: Initialize submission on backend
-      const res = await fetch(`/api/jobs/${application.id}/submit-application`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ profile })
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || 'Failed to initialize submission');
-      }
+      const data = await submissionService.submitApplication(application.id, { profile });
 
       // Simulate step-by-step progress for user transparency
       const logs: string[] = [
@@ -138,19 +130,10 @@ export const AutoApplySubmitModal: React.FC<AutoApplySubmitModalProps> = ({
         saveToMasterList: saveToMasterList[q.id] ?? true
       }));
 
-      const res = await fetch(`/api/jobs/${application.id}/answer-pending-questions`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          answers: answeredList,
-          profile
-        })
+      const data = await submissionService.answerPendingQuestions(application.id, {
+        answers: answeredList,
+        profile
       });
-
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || 'Failed to submit answers');
-      }
 
       // If new Master QA items were generated, save them to the profile
       if (Array.isArray(data.newMasterQAItems) && data.newMasterQAItems.length > 0) {

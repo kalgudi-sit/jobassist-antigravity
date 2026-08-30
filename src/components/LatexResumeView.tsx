@@ -17,6 +17,8 @@ import {
   ExternalLink
 } from 'lucide-react';
 import { ResumeTailoringResult, JobApplication, UserProfile } from '../types';
+import { copyToClipboard } from '../utils/clipboardUtils';
+import { downloadTexFile, createResumeFilename } from '../utils/latexUtils';
 
 interface LatexResumeViewProps {
   application: JobApplication;
@@ -70,26 +72,17 @@ export const LatexResumeView: React.FC<LatexResumeViewProps> = ({
 
   const diffCount = diffLines.filter(d => d.isDiff).length;
 
-  const handleCopy = () => {
-    navigator.clipboard.writeText(currentTex);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  const handleCopy = async () => {
+    const success = await copyToClipboard(currentTex);
+    if (success) {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
   };
 
   const handleDownloadTex = () => {
-    const safeCompany = (application.company || 'Company').toLowerCase().replace(/[^a-z0-9]/g, '-');
-    const safeRole = (application.title || 'Resume').toLowerCase().replace(/[^a-z0-9]/g, '-');
-    const filename = `${profile.personal.name.toLowerCase().replace(/\s+/g, '_')}_${safeCompany}_${safeRole}.tex`;
-    
-    const blob = new Blob([currentTex], { type: 'text/x-tex;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    const filename = createResumeFilename(profile.personal.name, application.company, application.title);
+    downloadTexFile(currentTex, filename);
   };
 
   const handlePrint = () => {

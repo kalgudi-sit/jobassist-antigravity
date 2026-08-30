@@ -31,6 +31,8 @@ import {
 import { JobApplication, UserProfile, ResumeTailoringResult, MasterQAItem } from '../types';
 import { DEFAULT_MASTER_TEX } from '../data/defaultProfile';
 import { StatusLozenge } from './StatusLozenge';
+import { copyToClipboard } from '../utils/clipboardUtils';
+import { downloadTexFile, createResumeFilename } from '../utils/latexUtils';
 
 interface ResumeTailorWorkspaceProps {
   applications: JobApplication[];
@@ -118,29 +120,20 @@ export const ResumeTailorWorkspace: React.FC<ResumeTailorWorkspaceProps> = ({
 
   const diffCount = diffLines.filter(d => d.isDiff).length;
 
-  const handleCopy = () => {
-    navigator.clipboard.writeText(isEditingTailored ? tailoredTexBuffer : currentTex);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  const handleCopy = async () => {
+    const textToCopy = isEditingTailored ? tailoredTexBuffer : currentTex;
+    const success = await copyToClipboard(textToCopy);
+    if (success) {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
   };
 
   const handleDownloadTex = () => {
     if (!selectedApp) return;
-    const safeCompany = (selectedApp.company || 'Company').toLowerCase().replace(/[^a-z0-9]/g, '-');
-    const safeRole = (selectedApp.title || 'Resume').toLowerCase().replace(/[^a-z0-9]/g, '-');
-    const candidateName = profile.personal.name.toLowerCase().replace(/\s+/g, '_');
-    const filename = `${candidateName}_${safeCompany}_${safeRole}_tailored.tex`;
-    
+    const filename = createResumeFilename(profile.personal.name, selectedApp.company, selectedApp.title);
     const textToDownload = isEditingTailored ? tailoredTexBuffer : currentTex;
-    const blob = new Blob([textToDownload], { type: 'text/x-tex;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    downloadTexFile(textToDownload, filename);
   };
 
   const handleFileUploadMaster = (e: React.ChangeEvent<HTMLInputElement>) => {

@@ -1,16 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { 
   JobApplication, 
   UserProfile, 
   ApplicationStatus,
-  JobAnalysis,
-  ProfileMatch,
   ResumeTailoringResult,
   CoverLetter,
   RecruiterDiscoveryResult,
   OutreachPackage
 } from './types';
-import { DEFAULT_USER_PROFILE, SAMPLE_APPLICATIONS } from './data/defaultProfile';
+import { useApplications } from './hooks/useApplications';
+import { useMasterProfile } from './hooks/useMasterProfile';
+import { jobService } from './services/jobService';
+import { resumeService } from './services/resumeService';
+import { communicationService } from './services/communicationService';
 import { Navbar } from './components/Navbar';
 import { ApplicationList } from './components/ApplicationList';
 import { ApplicationDetailView } from './components/ApplicationDetailView';
@@ -20,57 +22,43 @@ import { MasterProfileModal } from './components/MasterProfileModal';
 import { WorkflowGuideModal } from './components/WorkflowGuideModal';
 
 export default function App() {
-  const [profile, setProfile] = useState<UserProfile>(DEFAULT_USER_PROFILE);
-  const [applications, setApplications] = useState<JobApplication[]>(SAMPLE_APPLICATIONS);
-  const [selectedApplicationId, setSelectedApplicationId] = useState<string | null>(null);
-  const [currentView, setCurrentView] = useState<'applications' | 'tailor' | 'detail'>('applications');
+  const {
+    applications,
+    selectedApplication,
+    isLoading: isAppsLoading,
+    searchQuery,
+    statusFilter,
+    setSelectedApplication,
+    setSearchQuery,
+    setStatusFilter,
+    saveApplication,
+    updateApplicationStatus,
+    deleteApplication,
+    selectApplicationById
+  } = useApplications();
 
-  // Filter & Search
-  const [activeStatusFilter, setActiveStatusFilter] = useState<string>('ALL');
-  const [searchTerm, setSearchTerm] = useState<string>('');
+  const {
+    profile,
+    updateProfile,
+    updateMasterQA
+  } = useMasterProfile();
+
+  const [currentView, setCurrentView] = useState<'applications' | 'tailor' | 'detail'>('applications');
+  const [selectedApplicationId, setSelectedApplicationId] = useState<string | null>(null);
 
   // Modals
   const [isJobModalOpen, setIsJobModalOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isGuideModalOpen, setIsGuideModalOpen] = useState(false);
 
-  // Loading flags
+  // Action Loading states
   const [isAnalyzingJob, setIsAnalyzingJob] = useState(false);
   const [isTailoringResume, setIsTailoringResume] = useState(false);
   const [isGeneratingCoverLetter, setIsGeneratingCoverLetter] = useState(false);
   const [isDiscoveringRecruiters, setIsDiscoveringRecruiters] = useState(false);
   const [isGeneratingOutreach, setIsGeneratingOutreach] = useState(false);
 
-  // Initialize from server if available
-  useEffect(() => {
-    async function loadInitialData() {
-      try {
-        const [profileRes, jobsRes] = await Promise.all([
-          fetch('/api/profile'),
-          fetch('/api/jobs')
-        ]);
-
-        if (profileRes.ok) {
-          const profileData = await profileRes.json();
-          if (profileData && profileData.personal) {
-            setProfile(profileData);
-          }
-        }
-
-        if (jobsRes.ok) {
-          const jobsData = await jobsRes.json();
-          if (Array.isArray(jobsData) && jobsData.length > 0) {
-            setApplications(jobsData);
-          }
-        }
-      } catch (err) {
-        console.log('Using initial default state:', err);
-      }
-    }
-    loadInitialData();
-  }, []);
-
-  const selectedApp = applications.find(a => a.id === selectedApplicationId) || null;
+  const activeApp = selectedApplication || applications.find(a => a.id === selectedApplicationId) || null;
 
   // Handle creating & analyzing a new job
   const handleAnalyzeNewJob = async (jobInput: {
@@ -82,79 +70,65 @@ export default function App() {
   }) => {
     setIsAnalyzingJob(true);
     try {
-      const res = await fetch('/api/jobs/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(jobInput)
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || 'Failed to analyze job');
-      }
-
-      const newApp: JobApplication = {
-        id: data.id || `job-${Date.now()}`,
+      const { analysis, match } = await jobService.analyze({
+        jobDescription: jobInput.jobDescription,
         title: jobInput.title,
         company: jobInput.company,
         location: jobInput.location,
+        url: jobInput.url
+      });
+
+      const newApp: JobApplication = {
+        id: `job-${Date.now()}`,
+        title: jobInput.title || analysis.title || 'Software Engineer',
+        company: jobInput.company || analysis.company || 'Company',
+        location: jobInput.location || analysis.location || 'Bangalore, India',
         url: jobInput.url,
         jobDescription: jobInput.jobDescription,
         status: 'ANALYZED',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-        analysis: data.analysis,
-        match: data.match
+        analysis,
+        match
       };
 
-      setApplications(prev => [newApp, ...prev]);
+      await saveApplication(newApp);
+      setSelectedApplication(newApp);
       setSelectedApplicationId(newApp.id);
       setIsJobModalOpen(false);
+      setCurrentView('detail');
     } catch (err: any) {
-      alert(err.message || 'Error analyzing job description. Please check server logs.');
+      alert(err.message || 'Error analyzing job description. Please check connection and try again.');
     } finally {
       setIsAnalyzingJob(false);
     }
   };
 
-  // Handle Tailoring LaTeX Resume for active application
+  // Handle Tailoring LaTeX Resume
   const handleTailorResume = async (appId?: string) => {
-    const targetId = appId || selectedApplicationId;
-    const targetApp = applications.find(a => a.id === targetId) || selectedApp || applications[0];
+    const targetId = appId || activeApp?.id || selectedApplicationId;
+    const targetApp = applications.find(a => a.id === targetId) || activeApp || applications[0];
     if (!targetApp) return;
 
     setIsTailoringResume(true);
     try {
-      const res = await fetch(`/api/jobs/${targetApp.id}/tailor-resume`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          masterTex: profile.masterTexResume,
-          jobDescription: targetApp.jobDescription,
-          analysis: targetApp.analysis,
-          match: targetApp.match,
-          profile: profile
-        })
+      const response = await resumeService.tailorForApplication(targetApp.id, {
+        masterTex: profile.masterTexResume,
+        jobDescription: targetApp.jobDescription,
+        analysis: targetApp.analysis,
+        match: targetApp.match,
+        profile: profile
       });
 
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || 'Failed to tailor LaTeX resume');
-      }
+      const tailoringResult: ResumeTailoringResult = response.tailoring || response.result;
+      const updated: JobApplication = {
+        ...targetApp,
+        resumeTailoring: tailoringResult,
+        status: targetApp.status === 'CREATED' || targetApp.status === 'ANALYZED' ? 'TAILORED' : targetApp.status,
+        updatedAt: new Date().toISOString()
+      };
 
-      const tailoringResult: ResumeTailoringResult = data.tailoring;
-
-      setApplications(prev => prev.map(app => {
-        if (app.id === targetApp.id) {
-          return {
-            ...app,
-            resumeTailoring: tailoringResult,
-            status: app.status === 'CREATED' || app.status === 'ANALYZED' ? 'TAILORED' : app.status,
-            updatedAt: new Date().toISOString()
-          };
-        }
-        return app;
-      }));
+      await saveApplication(updated);
     } catch (err: any) {
       alert(err.message || 'Error tailoring LaTeX resume.');
     } finally {
@@ -164,36 +138,22 @@ export default function App() {
 
   // Handle Cover Letter Generation
   const handleGenerateCoverLetter = async () => {
-    if (!selectedApp) return;
+    if (!activeApp) return;
     setIsGeneratingCoverLetter(true);
     try {
-      const res = await fetch(`/api/jobs/${selectedApp.id}/generate-cover-letter`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          jobDescription: selectedApp.jobDescription,
-          profile: profile
-        })
+      const { coverLetter } = await communicationService.generateCoverLetter(activeApp.id, {
+        jobDescription: activeApp.jobDescription,
+        profile: profile
       });
 
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || 'Failed to generate cover letter');
-      }
+      const updated: JobApplication = {
+        ...activeApp,
+        coverLetter,
+        status: activeApp.status === 'TAILORED' ? 'READY_TO_APPLY' : activeApp.status,
+        updatedAt: new Date().toISOString()
+      };
 
-      const coverLetter: CoverLetter = data.coverLetter;
-
-      setApplications(prev => prev.map(app => {
-        if (app.id === selectedApp.id) {
-          return {
-            ...app,
-            coverLetter,
-            status: app.status === 'TAILORED' ? 'READY_TO_APPLY' : app.status,
-            updatedAt: new Date().toISOString()
-          };
-        }
-        return app;
-      }));
+      await saveApplication(updated);
     } catch (err: any) {
       alert(err.message || 'Error generating cover letter.');
     } finally {
@@ -202,63 +162,46 @@ export default function App() {
   };
 
   // Save manual cover letter edits
-  const handleSaveCoverLetter = (content: string) => {
-    if (!selectedApp || !selectedApp.coverLetter) return;
+  const handleSaveCoverLetter = async (content: string) => {
+    if (!activeApp || !activeApp.coverLetter) return;
     const updatedCover: CoverLetter = {
-      ...selectedApp.coverLetter,
+      ...activeApp.coverLetter,
       content,
-      wordCount: content.trim().split(/\s+/).length
+      wordCount: content.trim().split(/\s+/).filter(Boolean).length
     };
 
-    setApplications(prev => prev.map(app => {
-      if (app.id === selectedApp.id) {
-        return {
-          ...app,
-          coverLetter: updatedCover,
-          updatedAt: new Date().toISOString()
-        };
-      }
-      return app;
-    }));
+    const updated: JobApplication = {
+      ...activeApp,
+      coverLetter: updatedCover,
+      updatedAt: new Date().toISOString()
+    };
+
+    await saveApplication(updated);
   };
 
   // Handle Recruiter Discovery
   const handleDiscoverRecruiters = async () => {
-    if (!selectedApp) return;
+    if (!activeApp) return;
     setIsDiscoveringRecruiters(true);
     try {
-      const res = await fetch(`/api/jobs/${selectedApp.id}/discover-recruiters`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          company: selectedApp.company,
-          role: selectedApp.title,
-          location: selectedApp.location
-        })
+      const { discovery } = await communicationService.discoverRecruiters(activeApp.id, {
+        company: activeApp.company,
+        role: activeApp.title,
+        location: activeApp.location
       });
 
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || 'Failed to discover recruiters');
-      }
+      const updated: JobApplication = {
+        ...activeApp,
+        outreach: {
+          searchStrategies: discovery.strategies,
+          recruiterCandidates: discovery.candidates,
+          messages: activeApp.outreach?.messages || [],
+          generatedAt: new Date().toISOString()
+        },
+        updatedAt: new Date().toISOString()
+      };
 
-      const discovery: RecruiterDiscoveryResult = data.discovery;
-
-      setApplications(prev => prev.map(app => {
-        if (app.id === selectedApp.id) {
-          return {
-            ...app,
-            outreach: {
-              ...(app.outreach || {}),
-              searchStrategies: discovery.strategies,
-              recruiterCandidates: discovery.candidates,
-              messages: app.outreach?.messages || []
-            },
-            updatedAt: new Date().toISOString()
-          };
-        }
-        return app;
-      }));
+      await saveApplication(updated);
     } catch (err: any) {
       alert(err.message || 'Error discovering recruiters.');
     } finally {
@@ -268,39 +211,25 @@ export default function App() {
 
   // Handle Outreach Generation
   const handleGenerateOutreach = async (candidateName?: string, candidateTitle?: string) => {
-    if (!selectedApp) return;
+    if (!activeApp) return;
     setIsGeneratingOutreach(true);
     try {
-      const res = await fetch(`/api/jobs/${selectedApp.id}/generate-outreach`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          company: selectedApp.company,
-          role: selectedApp.title,
-          candidateName,
-          candidateTitle,
-          profile: profile
-        })
+      const { outreach } = await communicationService.generateOutreach(activeApp.id, {
+        company: activeApp.company,
+        role: activeApp.title,
+        candidateName,
+        candidateTitle,
+        profile
       });
 
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || 'Failed to generate outreach');
-      }
+      const updated: JobApplication = {
+        ...activeApp,
+        outreach,
+        status: activeApp.status === 'READY_TO_APPLY' ? 'RECRUITER_CONTACTED' : activeApp.status,
+        updatedAt: new Date().toISOString()
+      };
 
-      const outreachPkg: OutreachPackage = data.outreach;
-
-      setApplications(prev => prev.map(app => {
-        if (app.id === selectedApp.id) {
-          return {
-            ...app,
-            outreach: outreachPkg,
-            status: app.status === 'READY_TO_APPLY' ? 'RECRUITER_CONTACTED' : app.status,
-            updatedAt: new Date().toISOString()
-          };
-        }
-        return app;
-      }));
+      await saveApplication(updated);
     } catch (err: any) {
       alert(err.message || 'Error generating outreach messages.');
     } finally {
@@ -308,62 +237,30 @@ export default function App() {
     }
   };
 
-  // Update Application Status
-  const handleUpdateStatus = (id: string, newStatus: ApplicationStatus) => {
-    setApplications(prev => prev.map(app => {
-      if (app.id === id) {
-        return { ...app, status: newStatus, updatedAt: new Date().toISOString() };
-      }
-      return app;
-    }));
-  };
-
-  // Delete Application
-  const handleDeleteApplication = (id: string, e?: React.MouseEvent) => {
-    if (e) e.stopPropagation();
-    setApplications(prev => prev.filter(app => app.id !== id));
-    if (selectedApplicationId === id) {
-      setSelectedApplicationId(null);
-    }
-    fetch(`/api/jobs/${id}`, { method: 'DELETE' }).catch(() => {});
-  };
-
-  // Save Master Profile & LaTeX
-  const handleSaveProfile = async (updated: UserProfile) => {
-    setProfile(updated);
-    try {
-      await fetch('/api/profile', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updated)
-      });
-    } catch (err) {
-      console.error('Error saving profile to server:', err);
-    }
-  };
-
   return (
     <div className="min-h-screen bg-white text-[#172B4D] font-sans flex flex-col selection:bg-[#DEEBFF] selection:text-[#0052CC]">
-      {/* Atlassian Clean Minimalism Top Navigation Bar */}
+      {/* Precision Top Navigation Bar */}
       <Navbar
         onNewJobClick={() => setIsJobModalOpen(true)}
         onOpenProfile={() => setIsProfileModalOpen(true)}
         onOpenWorkflowGuide={() => setIsGuideModalOpen(true)}
         onHomeClick={() => {
+          setSelectedApplication(null);
           setSelectedApplicationId(null);
           setCurrentView('applications');
         }}
         onOpenTailorWorkspace={() => {
           if (!selectedApplicationId && applications.length > 0) {
             setSelectedApplicationId(applications[0].id);
+            setSelectedApplication(applications[0]);
           }
           setCurrentView('tailor');
         }}
         currentView={currentView}
-        searchTerm={searchTerm}
-        onSearchChange={setSearchTerm}
+        searchTerm={searchQuery}
+        onSearchChange={setSearchQuery}
         profile={profile}
-        activeJobTitle={selectedApp ? `${selectedApp.company}_${selectedApp.title.replace(/\s+/g, '_')}` : undefined}
+        activeJobTitle={activeApp ? `${activeApp.company}_${activeApp.title.replace(/\s+/g, '_')}` : undefined}
       />
 
       {/* Main View Area */}
@@ -371,43 +268,43 @@ export default function App() {
         {currentView === 'tailor' ? (
           <ResumeTailorWorkspace
             applications={applications}
-            selectedApplicationId={selectedApplicationId || (applications[0]?.id ?? null)}
-            onSelectApplication={(id) => setSelectedApplicationId(id)}
+            selectedApplicationId={selectedApplicationId || activeApp?.id || (applications[0]?.id ?? null)}
+            onSelectApplication={(id) => {
+              setSelectedApplicationId(id);
+              selectApplicationById(id);
+            }}
             profile={profile}
-            onUpdateProfile={handleSaveProfile}
+            onUpdateProfile={updateProfile}
             onTailorResume={handleTailorResume}
             isTailoring={isTailoringResume}
             onNewJobClick={() => setIsJobModalOpen(true)}
             onOpenApplicationDetail={(app) => {
               setSelectedApplicationId(app.id);
+              setSelectedApplication(app);
               setCurrentView('detail');
             }}
           />
-        ) : currentView === 'detail' && selectedApp ? (
+        ) : currentView === 'detail' && activeApp ? (
           <ApplicationDetailView
-            application={selectedApp}
+            application={activeApp}
             profile={profile}
             onBack={() => {
+              setSelectedApplication(null);
               setSelectedApplicationId(null);
               setCurrentView('applications');
             }}
-            onUpdateStatus={handleUpdateStatus}
+            onUpdateStatus={(id, status) => updateApplicationStatus(id, status)}
             onTailorResume={handleTailorResume}
             onGenerateCoverLetter={handleGenerateCoverLetter}
             onSaveCoverLetter={handleSaveCoverLetter}
             onDiscoverRecruiters={handleDiscoverRecruiters}
             onGenerateOutreach={handleGenerateOutreach}
-            onDeleteApplication={(id, e) => {
-              handleDeleteApplication(id, e);
+            onDeleteApplication={async (id) => {
+              await deleteApplication(id);
               setCurrentView('applications');
             }}
-            onUpdateApplication={(updatedApp) => {
-              setApplications(prev => prev.map(a => a.id === updatedApp.id ? updatedApp : a));
-            }}
-            onSaveMasterQA={async (newQAs) => {
-              const updatedProfile = { ...profile, masterQA: newQAs };
-              await handleSaveProfile(updatedProfile);
-            }}
+            onUpdateApplication={saveApplication}
+            onSaveMasterQA={updateMasterQA}
             isTailoring={isTailoringResume}
             isGeneratingCoverLetter={isGeneratingCoverLetter}
             isDiscoveringRecruiters={isDiscoveringRecruiters}
@@ -418,17 +315,22 @@ export default function App() {
             applications={applications}
             onSelectApplication={(app) => {
               setSelectedApplicationId(app.id);
+              setSelectedApplication(app);
               setCurrentView('detail');
             }}
             onOpenTailorForApp={(app) => {
               setSelectedApplicationId(app.id);
+              setSelectedApplication(app);
               setCurrentView('tailor');
             }}
-            onDeleteApplication={handleDeleteApplication}
+            onDeleteApplication={(id, e) => {
+              if (e) e.stopPropagation();
+              deleteApplication(id);
+            }}
             onNewJobClick={() => setIsJobModalOpen(true)}
-            activeStatusFilter={activeStatusFilter}
-            onStatusFilterChange={setActiveStatusFilter}
-            searchTerm={searchTerm}
+            activeStatusFilter={statusFilter}
+            onStatusFilterChange={setStatusFilter}
+            searchTerm={searchQuery}
           />
         )}
       </main>
@@ -445,7 +347,7 @@ export default function App() {
         isOpen={isProfileModalOpen}
         onClose={() => setIsProfileModalOpen(false)}
         profile={profile}
-        onSaveProfile={handleSaveProfile}
+        onSaveProfile={updateProfile}
       />
 
       <WorkflowGuideModal
