@@ -14,6 +14,7 @@ import { DEFAULT_USER_PROFILE, SAMPLE_APPLICATIONS } from './data/defaultProfile
 import { Navbar } from './components/Navbar';
 import { ApplicationList } from './components/ApplicationList';
 import { ApplicationDetailView } from './components/ApplicationDetailView';
+import { ResumeTailorWorkspace } from './components/ResumeTailorWorkspace';
 import { JobInputModal } from './components/JobInputModal';
 import { MasterProfileModal } from './components/MasterProfileModal';
 import { WorkflowGuideModal } from './components/WorkflowGuideModal';
@@ -22,6 +23,7 @@ export default function App() {
   const [profile, setProfile] = useState<UserProfile>(DEFAULT_USER_PROFILE);
   const [applications, setApplications] = useState<JobApplication[]>(SAMPLE_APPLICATIONS);
   const [selectedApplicationId, setSelectedApplicationId] = useState<string | null>(null);
+  const [currentView, setCurrentView] = useState<'applications' | 'tailor' | 'detail'>('applications');
 
   // Filter & Search
   const [activeStatusFilter, setActiveStatusFilter] = useState<string>('ALL');
@@ -116,16 +118,21 @@ export default function App() {
   };
 
   // Handle Tailoring LaTeX Resume for active application
-  const handleTailorResume = async () => {
-    if (!selectedApp) return;
+  const handleTailorResume = async (appId?: string) => {
+    const targetId = appId || selectedApplicationId;
+    const targetApp = applications.find(a => a.id === targetId) || selectedApp || applications[0];
+    if (!targetApp) return;
+
     setIsTailoringResume(true);
     try {
-      const res = await fetch(`/api/jobs/${selectedApp.id}/tailor-resume`, {
+      const res = await fetch(`/api/jobs/${targetApp.id}/tailor-resume`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           masterTex: profile.masterTexResume,
-          jobDescription: selectedApp.jobDescription,
+          jobDescription: targetApp.jobDescription,
+          analysis: targetApp.analysis,
+          match: targetApp.match,
           profile: profile
         })
       });
@@ -138,7 +145,7 @@ export default function App() {
       const tailoringResult: ResumeTailoringResult = data.tailoring;
 
       setApplications(prev => prev.map(app => {
-        if (app.id === selectedApp.id) {
+        if (app.id === targetApp.id) {
           return {
             ...app,
             resumeTailoring: tailoringResult,
@@ -342,7 +349,17 @@ export default function App() {
         onNewJobClick={() => setIsJobModalOpen(true)}
         onOpenProfile={() => setIsProfileModalOpen(true)}
         onOpenWorkflowGuide={() => setIsGuideModalOpen(true)}
-        onHomeClick={() => setSelectedApplicationId(null)}
+        onHomeClick={() => {
+          setSelectedApplicationId(null);
+          setCurrentView('applications');
+        }}
+        onOpenTailorWorkspace={() => {
+          if (!selectedApplicationId && applications.length > 0) {
+            setSelectedApplicationId(applications[0].id);
+          }
+          setCurrentView('tailor');
+        }}
+        currentView={currentView}
         searchTerm={searchTerm}
         onSearchChange={setSearchTerm}
         profile={profile}
@@ -351,18 +368,39 @@ export default function App() {
 
       {/* Main View Area */}
       <main className="flex-1 pb-16 bg-[#FAFBFC]">
-        {selectedApp ? (
+        {currentView === 'tailor' ? (
+          <ResumeTailorWorkspace
+            applications={applications}
+            selectedApplicationId={selectedApplicationId || (applications[0]?.id ?? null)}
+            onSelectApplication={(id) => setSelectedApplicationId(id)}
+            profile={profile}
+            onUpdateProfile={handleSaveProfile}
+            onTailorResume={handleTailorResume}
+            isTailoring={isTailoringResume}
+            onNewJobClick={() => setIsJobModalOpen(true)}
+            onOpenApplicationDetail={(app) => {
+              setSelectedApplicationId(app.id);
+              setCurrentView('detail');
+            }}
+          />
+        ) : currentView === 'detail' && selectedApp ? (
           <ApplicationDetailView
             application={selectedApp}
             profile={profile}
-            onBack={() => setSelectedApplicationId(null)}
+            onBack={() => {
+              setSelectedApplicationId(null);
+              setCurrentView('applications');
+            }}
             onUpdateStatus={handleUpdateStatus}
             onTailorResume={handleTailorResume}
             onGenerateCoverLetter={handleGenerateCoverLetter}
             onSaveCoverLetter={handleSaveCoverLetter}
             onDiscoverRecruiters={handleDiscoverRecruiters}
             onGenerateOutreach={handleGenerateOutreach}
-            onDeleteApplication={handleDeleteApplication}
+            onDeleteApplication={(id, e) => {
+              handleDeleteApplication(id, e);
+              setCurrentView('applications');
+            }}
             onUpdateApplication={(updatedApp) => {
               setApplications(prev => prev.map(a => a.id === updatedApp.id ? updatedApp : a));
             }}
@@ -378,7 +416,14 @@ export default function App() {
         ) : (
           <ApplicationList
             applications={applications}
-            onSelectApplication={(app) => setSelectedApplicationId(app.id)}
+            onSelectApplication={(app) => {
+              setSelectedApplicationId(app.id);
+              setCurrentView('detail');
+            }}
+            onOpenTailorForApp={(app) => {
+              setSelectedApplicationId(app.id);
+              setCurrentView('tailor');
+            }}
             onDeleteApplication={handleDeleteApplication}
             onNewJobClick={() => setIsJobModalOpen(true)}
             activeStatusFilter={activeStatusFilter}

@@ -1736,8 +1736,18 @@ Return JSON:
 
 // Route aliases for job-specific workflows
 app.post('/api/jobs/:id/tailor-resume', async (req, res) => {
-  const { masterTex, jobDescription, profile } = req.body;
+  const { masterTex, jobDescription, profile, analysis: passedAnalysis, match: passedMatch } = req.body;
   const userProfile: UserProfile = profile || getStoredProfile();
+  const apps = getStoredApplications();
+  const found = apps.find(a => a.id === req.params.id);
+
+  const jobAnalysis = passedAnalysis || found?.analysis || {
+    title: found?.title || 'Software Engineer',
+    company: found?.company || 'Target Company',
+    location: found?.location || 'Bangalore, India',
+    summary: jobDescription || found?.jobDescription || ''
+  };
+  const jobMatch = passedMatch || found?.match;
   
   // Forward to /api/resume/tailor-latex
   try {
@@ -1746,12 +1756,24 @@ app.post('/api/jobs/:id/tailor-resume', async (req, res) => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         masterTex: masterTex || userProfile.masterTexResume,
-        analysis: { summary: jobDescription },
+        analysis: jobAnalysis,
+        match: jobMatch,
         profile: userProfile
       })
     });
     const data = await analysisReq.json();
-    res.json({ tailoring: data.result || data.tailoring });
+    const tailoring = data.result || data.tailoring;
+
+    if (found && tailoring) {
+      found.resumeTailoring = tailoring;
+      found.updatedAt = new Date().toISOString();
+      if (found.status === 'CREATED' || found.status === 'ANALYZED') {
+        found.status = 'TAILORED';
+      }
+      saveStoredApplications(apps);
+    }
+
+    res.json({ tailoring });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }

@@ -22,6 +22,7 @@ interface ApplicationListProps {
   onSelectApplication: (app: JobApplication) => void;
   onDeleteApplication: (id: string, e: React.MouseEvent) => void;
   onNewJobClick: () => void;
+  onOpenTailorForApp?: (app: JobApplication) => void;
   activeStatusFilter: string;
   onStatusFilterChange: (status: string) => void;
   searchTerm: string;
@@ -32,6 +33,7 @@ export const ApplicationList: React.FC<ApplicationListProps> = ({
   onSelectApplication,
   onDeleteApplication,
   onNewJobClick,
+  onOpenTailorForApp,
   activeStatusFilter,
   onStatusFilterChange,
   searchTerm
@@ -273,14 +275,33 @@ export const ApplicationList: React.FC<ApplicationListProps> = ({
                   </div>
 
                   {/* Right: Actions */}
-                  <div className="flex items-center space-x-2 shrink-0 self-end md:self-center">
+                  <div className="flex flex-wrap items-center gap-2 shrink-0 self-end md:self-center">
+                    {onOpenTailorForApp && (
+                      <button
+                        id={`btn-optimize-tex-card-${app.id}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onOpenTailorForApp(app);
+                        }}
+                        className={`px-3 py-1.5 text-xs font-bold rounded-[3px] transition-all flex items-center space-x-1.5 cursor-pointer shadow-sm ${
+                          hasTailoredTex
+                            ? 'bg-[#EAE6FF] hover:bg-[#D8D0FF] text-[#403294] border border-[#C0B6F2]'
+                            : 'bg-[#0052CC] hover:bg-[#0747A6] text-white'
+                        }`}
+                        title="Optimize LaTeX Resume (.tex) for this Job Description"
+                      >
+                        <Sparkles className={`w-3.5 h-3.5 ${hasTailoredTex ? 'text-[#6554C0]' : 'text-[#FFE380]'}`} />
+                        <span>{hasTailoredTex ? 'View / Re-Optimize .tex' : 'Optimize .tex'}</span>
+                      </button>
+                    )}
+
                     <button
                       id={`btn-open-${app.id}`}
                       onClick={(e) => {
                         e.stopPropagation();
                         onSelectApplication(app);
                       }}
-                      className="px-3 py-1.5 bg-[#FAFBFC] hover:bg-[#DEEBFF] text-[#0052CC] border border-[#DFE1E6] hover:border-[#4C9AFF] text-xs font-semibold rounded-[3px] transition-colors flex items-center space-x-1.5"
+                      className="px-3 py-1.5 bg-[#FAFBFC] hover:bg-[#DEEBFF] text-[#0052CC] border border-[#DFE1E6] hover:border-[#4C9AFF] text-xs font-semibold rounded-[3px] transition-colors flex items-center space-x-1.5 cursor-pointer"
                     >
                       <span>Open Workspace</span>
                       <ArrowRight className="w-3 h-3" />
@@ -290,7 +311,7 @@ export const ApplicationList: React.FC<ApplicationListProps> = ({
                       id={`btn-delete-${app.id}`}
                       onClick={(e) => onDeleteApplication(app.id, e)}
                       title="Delete Application"
-                      className="p-1.5 text-[#6B778C] hover:text-[#BF2600] hover:bg-[#FFEBE6] rounded-[3px] transition-colors"
+                      className="p-1.5 text-[#6B778C] hover:text-[#BF2600] hover:bg-[#FFEBE6] rounded-[3px] transition-colors cursor-pointer"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>

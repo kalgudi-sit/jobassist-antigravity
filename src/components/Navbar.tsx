@@ -18,6 +18,8 @@ interface NavbarProps {
   onOpenProfile: () => void;
   onOpenWorkflowGuide: () => void;
   onHomeClick?: () => void;
+  onOpenTailorWorkspace?: () => void;
+  currentView?: 'applications' | 'tailor' | 'detail';
   searchTerm: string;
   onSearchChange: (val: string) => void;
   profile?: UserProfile;
@@ -29,6 +31,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenProfile,
   onOpenWorkflowGuide,
   onHomeClick,
+  onOpenTailorWorkspace,
+  currentView = 'applications',
   searchTerm,
   onSearchChange,
   profile,
@@ -70,10 +74,27 @@ export const Navbar: React.FC<NavbarProps> = ({
         <button
           id="btn-nav-apps"
           onClick={onHomeClick}
-          className="px-3 py-1.5 rounded hover:bg-[#F4F5F7] text-xs font-semibold text-[#42526E] hover:text-[#172B4D] transition-colors flex items-center gap-1.5 cursor-pointer"
+          className={`px-3 py-1.5 rounded text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer ${
+            currentView === 'applications'
+              ? 'bg-[#DEEBFF] text-[#0052CC]'
+              : 'text-[#42526E] hover:text-[#172B4D] hover:bg-[#F4F5F7]'
+          }`}
         >
-          <Layers className="w-3.5 h-3.5 text-[#0052CC]" />
+          <Layers className="w-3.5 h-3.5" />
           <span>Applications</span>
+        </button>
+
+        <button
+          id="btn-nav-tailor-tab"
+          onClick={onOpenTailorWorkspace}
+          className={`px-3 py-1.5 rounded text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer ${
+            currentView === 'tailor'
+              ? 'bg-[#EAE6FF] text-[#6554C0]'
+              : 'text-[#42526E] hover:text-[#172B4D] hover:bg-[#F4F5F7]'
+          }`}
+        >
+          <Sparkles className="w-3.5 h-3.5 text-[#6554C0]" />
+          <span>Resume Tailor (.tex)</span>
         </button>
 
         <button
